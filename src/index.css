@@ -92,3 +92,213 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-slate-600;
 }
+
+/* ===== SF/Cyberpunk Effects ===== */
+
+/* Hologram flicker effect */
+@keyframes hologram-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.8; }
+  94% { opacity: 1; }
+  96% { opacity: 0.9; }
+  97% { opacity: 1; }
+}
+.hologram {
+  animation: hologram-flicker 3s infinite;
+  position: relative;
+}
+.hologram::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(99, 102, 241, 0.03) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Glitch effect */
+@keyframes glitch {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+}
+.glitch {
+  animation: glitch 0.3s ease-in-out;
+}
+.glitch-text {
+  position: relative;
+}
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.glitch-text::before {
+  animation: glitch-1 2s infinite linear alternate-reverse;
+  clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+  color: #0ff;
+}
+.glitch-text::after {
+  animation: glitch-2 2s infinite linear alternate-reverse;
+  clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+  color: #f0f;
+}
+@keyframes glitch-1 {
+  0% { transform: translate(0); }
+  20% { transform: translate(-3px, 3px); }
+  40% { transform: translate(-3px, -3px); }
+  60% { transform: translate(3px, 3px); }
+  80% { transform: translate(3px, -3px); }
+  100% { transform: translate(0); }
+}
+@keyframes glitch-2 {
+  0% { transform: translate(0); }
+  20% { transform: translate(3px, -3px); }
+  40% { transform: translate(3px, 3px); }
+  60% { transform: translate(-3px, -3px); }
+  80% { transform: translate(-3px, 3px); }
+  100% { transform: translate(0); }
+}
+
+/* Scanline overlay for diagrams */
+.scanline-overlay {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.1) 2px,
+    rgba(0, 0, 0, 0.1) 4px
+  );
+  pointer-events: none;
+}
+.scanline-overlay::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.2), transparent);
+  animation: scan-line 4s linear infinite;
+}
+
+/* Neon glow effect */
+.neon-glow {
+  text-shadow:
+    0 0 5px currentColor,
+    0 0 10px currentColor,
+    0 0 20px currentColor,
+    0 0 40px currentColor;
+}
+.neon-border {
+  box-shadow:
+    0 0 5px rgba(99, 102, 241, 0.5),
+    0 0 10px rgba(99, 102, 241, 0.3),
+    inset 0 0 5px rgba(99, 102, 241, 0.1);
+}
+
+/* Data stream animation */
+@keyframes data-stream {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+.data-stream {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 1px,
+    rgba(34, 211, 238, 0.03) 1px,
+    rgba(34, 211, 238, 0.03) 2px
+  );
+  animation: data-stream 20s linear infinite;
+}
+
+/* Circuit pattern */
+.circuit-pattern {
+  background-image:
+    linear-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Pulse ring animation */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.pulse-ring {
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Matrix rain effect for backgrounds */
+@keyframes matrix-fall {
+  0% { transform: translateY(-100%); opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+/* Cyber border */
+.cyber-border {
+  position: relative;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+.cyber-border::before,
+.cyber-border::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #22d3ee;
+}
+.cyber-border::before {
+  top: -2px;
+  left: -2px;
+  border-right: none;
+  border-bottom: none;
+}
+.cyber-border::after {
+  bottom: -2px;
+  right: -2px;
+  border-left: none;
+  border-top: none;
+}
+
+/* Loading bar animation */
+@keyframes loading-bar {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  100% { width: 100%; }
+}
+.loading-bar {
+  animation: loading-bar 2s ease-in-out;
+}
+
+/* Mermaid diagram styles */
+.mermaid {
+  background: transparent !important;
+}
+.mermaid text {
+  fill: #e2e8f0 !important;
+}
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node polygon {
+  fill: #1e1b4b !important;
+  stroke: #818cf8 !important;
+}
+.mermaid .edgePath path {
+  stroke: #818cf8 !important;
+}
+.mermaid .arrowheadPath {
+  fill: #818cf8 !important;
+}

@@ -18,12 +18,33 @@ export type FutureCardData = {
   wellbeingScore: number;
 };
 
+// キャリアタイムラインのマイルストーン
+export type CareerMilestone = {
+  year: string;
+  title: string;
+  description: string;
+  type: 'promotion' | 'skill' | 'project' | 'transition';
+};
+
+// マルチモーダル出力データ
+export type MultimodalOutput = {
+  // Mermaidダイアグラム（キャリアパス）
+  mermaidDiagram?: string;
+  // キャリアタイムライン
+  timeline?: CareerMilestone[];
+  // 画像プロンプト（Gemini用）
+  imagePrompt?: string;
+  // 生成された画像URL
+  generatedImageUrl?: string;
+};
+
 export type Message = {
   id: string;
   role: 'user' | 'ai';
   content: string;
-  type?: 'text' | 'future-card' | 'error';
+  type?: 'text' | 'future-card' | 'multimodal' | 'error';
   cardData?: FutureCardData;
+  multimodal?: MultimodalOutput;
   metricsUpdate?: Metrics; // AIの回答ごとにメトリクスを更新
 };
 

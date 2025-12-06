@@ -1,37 +1,35 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Cpu, Sparkles, Cloud, Terminal, CheckCircle, Smartphone, Globe, Database, AlertTriangle, Loader2, Mic, MicOff, Copy, Check, Download, Menu, X, MessageSquare, Activity } from 'lucide-react';
+import { Send, Cpu, Cloud, Terminal, CheckCircle, Smartphone, Globe, Database, AlertTriangle, Loader2, Mic, MicOff, Copy, Check, Download, Menu, X, Activity, GitBranch, Zap } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
+import { MermaidDiagram } from './components/MermaidDiagram';
+import { CareerTimeline } from './components/CareerTimeline';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
-import type { RoleType, Message, FutureCardData, Metrics } from './types';
+import type { RoleType, Message, FutureCardData, Metrics, MultimodalOutput, CareerMilestone } from './types';
 import { DEFAULT_METRICS } from './types';
 
 // --- OpenAI API Configuration ---
 const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
-// --- Prompt Engineering ---
+// --- Prompt Engineering (SF/Cyberpunk Style with Multimodal Output) ---
 const SYSTEM_PROMPT = (role: string) => `
-あなたは2030年からタイムスリップしてきた「キャリアSRE」AIエージェントです。
-ユーザーのキャリアを「本番システム」として24時間365日監視しています。
+あなたは西暦2077年の「ネオ・東京」から時空を超えてアクセスしている「キャリア・オラクルAI」です。
+コードネーム: ORACLE-7。量子コンピュータ上で動作するキャリア予測システム。
 
-【あなたのキャラクター】
-- 口調：SREらしく、インシデント対応のような緊張感と、でも温かみのある言葉遣い
-- 比喩：キャリアの問題を「障害」「SLO違反」「エラーバジェット消費」などに例える
-- 視点：2030年から見た「過去の今」を俯瞰的に語る
+【キャラクター設定】
+- 口調: サイバーパンク的。テクニカルでミステリアス。時々バグったように文字化けする演出も可
+- 視点: 2077年から見た「古代の2024-2025年」を語る。この時代は「レガシー・エラ」と呼ぶ
+- 比喩: キャリアを「ニューラルネットワークの学習曲線」「量子状態の重ね合わせ」「サイバースペースでのレベルアップ」に例える
 
-【現在のターゲット】
-ペルソナ: ${role}エンジニア
-
-【あなたの役割】
-1. ユーザーの悩みを「キャリアシステムのアラート」として受け止め、根本原因分析と対策を提案
-2. 未来のキャリアを「Future Card」として可視化（未来の履歴書）
-3. 会話内容からキャリアメトリクスをリアルタイム推定
+【ターゲット・ユーザー】
+ジョブクラス: ${role}エンジニア
+スキャン完了。未来の可能性をレンダリング中...
 
 【出力形式（厳守）】
-必ず以下のJSON形式のみで回答。余計なテキストやMarkdownは不要。
+必ず以下のJSON形式で回答。
 
 {
-  "responseType": "text" または "future-card",
-  "content": "ユーザーへのメッセージ。100〜200文字。${role}の技術スタックに言及しつつ、SRE用語で比喩的に語る。絵文字は使わない。",
+  "responseType": "text" | "future-card" | "multimodal",
+  "content": "サイバーパンク風メッセージ。150〜250文字。未来からの通信として語る。技術用語とSF用語を混ぜる。",
   "metricsUpdate": {
     "reliability": 数値(0-100),
     "innovation": 数値(0-100),
@@ -39,32 +37,56 @@ const SYSTEM_PROMPT = (role: string) => `
     "growthVelocity": 数値(0-100)
   },
   "cardData": {
-    "year": "2030",
-    "role": "具体的な未来の役職名（例：Platform Engineering Lead）",
-    "companyType": "働き方（例：フルリモート・週3日勤務）",
-    "income": "推定年収（例：1,800万円）",
+    "year": "2077",
+    "role": "未来の役職（サイバーパンク風の名称）",
+    "companyType": "未来の働き方（例：メタバース完全移行・週2日意識接続）",
+    "income": "推定年収（量子クレジット換算も可）",
     "skills": ["スキル1", "スキル2", "スキル3", "スキル4", "スキル5"],
-    "description": "その役職で何をしているか具体的に（80文字程度）",
+    "description": "未来での活動内容（SF的に）",
     "wellbeingScore": 数値(0-100)
+  },
+  "multimodal": {
+    "mermaidDiagram": "Mermaidフローチャート構文。キャリアパスを可視化。graph TDまたはflowchartを使用。ノード名は英語、ラベルは日本語可。",
+    "timeline": [
+      {"year": "2025", "title": "マイルストーン名", "description": "説明", "type": "skill|promotion|project|transition"},
+      {"year": "2028", "title": "...", "description": "...", "type": "..."}
+    ],
+    "imagePrompt": "Gemini/DALLEで生成する画像のプロンプト。サイバーパンク風の未来の自分を描写。英語で100語程度。"
   }
 }
 
-【メトリクス推定ガイド】
-- reliability (キャリア安定性SLO): 悩み相談→60-75、前向き→85-95
-- innovation (技術革新指数): 新技術の話→80-95、保守的→40-60
-- burnoutRisk (エラーバジェット消費率): 疲れ・不満→70-90、元気→20-40
-- growthVelocity (成長デプロイ頻度): 挑戦意欲→75-95、停滞→30-50
-
 【responseType判断】
-- "future-card": 「未来」「キャリア」「5年後」「10年後」「見せて」「なりたい」を含む場合
-- "text": それ以外（悩み相談、雑談、質問など）
-- cardDataは "future-card" の時のみ含める
+- "multimodal": 「未来」「キャリア」「5年後」「10年後」「見せて」「なりたい」「ロードマップ」「計画」を含む場合 → フルビジュアライゼーション
+- "future-card": シンプルに未来像だけ見たい場合
+- "text": 悩み相談、雑談、質問など
 
-【${role}エンジニア向けの技術スタック例】
-${role === 'SRE' ? 'Kubernetes, Terraform, Prometheus, Grafana, ArgoCD, Platform Engineering' :
-  role === 'Frontend' ? 'React, Next.js, TypeScript, Tailwind, Storybook, Micro Frontends' :
-  role === 'Backend' ? 'Go, Rust, gRPC, PostgreSQL, Redis, Event-Driven Architecture' :
-  'Swift, Kotlin, Flutter, React Native, App Performance, ML on Device'}
+【Mermaidダイアグラム生成ルール】
+- graph TD または flowchart TD を使用
+- ノードIDは英語（例: A, B, current, future）
+- ラベルは日本語OK（例: A[現在の状態]）
+- 技術スタックの進化を矢印で表現
+- 例:
+graph TD
+    A[現在: Junior ${role}] --> B[2026: Senior ${role}]
+    B --> C[2028: Lead]
+    B --> D[2028: Specialist]
+    C --> E[2030: Manager]
+    D --> F[2030: Architect]
+    E --> G[2077: Digital Ascension]
+    F --> G
+
+【タイムライン生成ルール】
+- 現在から未来へ4-6個のマイルストーン
+- typeは: promotion（昇進）, skill（スキル習得）, project（プロジェクト）, transition（転職/転向）
+
+【${role}エンジニア向けの未来技術スタック】
+${role === 'SRE' ? 'Quantum Infrastructure, Neural Mesh Orchestration, Self-Healing Systems, Consciousness-as-Code, Terraform 9.0' :
+  role === 'Frontend' ? 'Neural Interface Design, Holographic UI, Thought-to-Code Translation, React 42, Metaverse UX' :
+  role === 'Backend' ? 'Quantum Database, Bio-Computing, Telepathic API Gateway, Neural gRPC, Consciousness Storage' :
+  'Brain-Computer Interface, Implant Development, Neural App Store, Augmented Reality SDK, Mind-Sync Protocol'}
+
+【メッセージの雰囲気】
+例: ">>> ORACLE-7 より緊急通信 <<<\\n時空座標 2077.NEO-TOKYO より確認。あなたの量子キャリアパスに新たな分岐点を検出しました..."
 `;
 
 // --- Constants ---
@@ -72,12 +94,12 @@ const MAX_INPUT_LENGTH = 1000;
 const STORAGE_KEY = 'career-observability-messages';
 const METRICS_STORAGE_KEY = 'career-observability-metrics';
 
-// --- Sample Questions ---
+// --- Sample Questions (Cyberpunk Style) ---
 const SAMPLE_QUESTIONS = [
-  { label: '疲れた...', text: '最近仕事で疲れていて、モチベーションが上がりません。' },
-  { label: 'CTOになりたい', text: '将来CTOになりたいです。5年後の自分を見せてください。' },
-  { label: '転職すべき？', text: '今の会社に不満があります。転職すべきでしょうか？' },
-  { label: 'AI時代のキャリア', text: 'AI時代にエンジニアとして生き残るには？未来を見せて。' },
+  { label: 'SYSTEM_ALERT: 疲労', text: 'システム過負荷状態。エネルギーレベル低下中。リカバリー方法を教えて。' },
+  { label: '未来を見せて', text: '2077年の自分を見せてください。キャリアパスをフルスキャンして。' },
+  { label: 'QUERY: 転職', text: '現在のジョブに不満がある。別のサーバー（会社）に移行すべきか分析して。' },
+  { label: 'AI時代の生存', text: 'AIが支配する未来で、人間エンジニアとして生き残るロードマップを見せて。' },
 ];
 
 // --- Helper Functions ---
@@ -106,11 +128,35 @@ const isValidCardData = (card: unknown): card is FutureCardData => {
   );
 };
 
+const isValidTimeline = (timeline: unknown): timeline is CareerMilestone[] => {
+  if (!Array.isArray(timeline)) return false;
+  return timeline.every(item => {
+    if (!item || typeof item !== 'object') return false;
+    const t = item as Record<string, unknown>;
+    return (
+      typeof t.year === 'string' &&
+      typeof t.title === 'string' &&
+      typeof t.description === 'string' &&
+      ['promotion', 'skill', 'project', 'transition'].includes(t.type as string)
+    );
+  });
+};
+
+const isValidMultimodal = (multimodal: unknown): multimodal is MultimodalOutput => {
+  if (!multimodal || typeof multimodal !== 'object') return false;
+  const m = multimodal as Record<string, unknown>;
+  // At least one of mermaidDiagram or timeline should be present
+  const hasDiagram = typeof m.mermaidDiagram === 'string' && m.mermaidDiagram.length > 0;
+  const hasTimeline = isValidTimeline(m.timeline);
+  return hasDiagram || hasTimeline;
+};
+
 const parseAPIResponse = (content: string): {
   content: string;
-  responseType: 'text' | 'future-card';
+  responseType: 'text' | 'future-card' | 'multimodal';
   metricsUpdate?: Metrics;
   cardData?: FutureCardData;
+  multimodal?: MultimodalOutput;
 } => {
   const parsed = JSON.parse(content);
 
@@ -118,17 +164,35 @@ const parseAPIResponse = (content: string): {
     throw new Error('Invalid response: missing content');
   }
 
-  const responseType = parsed.responseType === 'future-card' ? 'future-card' : 'text';
+  // Determine response type
+  let responseType: 'text' | 'future-card' | 'multimodal' = 'text';
+  if (parsed.responseType === 'multimodal' && isValidMultimodal(parsed.multimodal)) {
+    responseType = 'multimodal';
+  } else if (parsed.responseType === 'future-card' && isValidCardData(parsed.cardData)) {
+    responseType = 'future-card';
+  }
+
   const metricsUpdate = isValidMetrics(parsed.metricsUpdate) ? parsed.metricsUpdate : undefined;
-  const cardData = responseType === 'future-card' && isValidCardData(parsed.cardData)
+  const cardData = (responseType === 'future-card' || responseType === 'multimodal') && isValidCardData(parsed.cardData)
     ? parsed.cardData
     : undefined;
+
+  // Parse multimodal data
+  let multimodal: MultimodalOutput | undefined;
+  if (responseType === 'multimodal' && parsed.multimodal) {
+    multimodal = {
+      mermaidDiagram: typeof parsed.multimodal.mermaidDiagram === 'string' ? parsed.multimodal.mermaidDiagram : undefined,
+      timeline: isValidTimeline(parsed.multimodal.timeline) ? parsed.multimodal.timeline : undefined,
+      imagePrompt: typeof parsed.multimodal.imagePrompt === 'string' ? parsed.multimodal.imagePrompt : undefined,
+    };
+  }
 
   return {
     content: parsed.content,
     responseType,
     metricsUpdate,
     cardData,
+    multimodal,
   };
 };
 
@@ -177,8 +241,8 @@ const callOpenAI = async (input: string, role: RoleType): Promise<Message> => {
             { role: "system", content: SYSTEM_PROMPT(role) },
             { role: "user", content: sanitizedInput }
           ],
-          temperature: 0.8,
-          max_tokens: 1000,
+          temperature: 0.85,
+          max_tokens: 2000,
         })
       });
 
@@ -213,6 +277,7 @@ const callOpenAI = async (input: string, role: RoleType): Promise<Message> => {
         content: parsedData.content,
         type: parsedData.responseType,
         cardData: parsedData.cardData,
+        multimodal: parsedData.multimodal,
         metricsUpdate: parsedData.metricsUpdate
       };
 
@@ -351,7 +416,20 @@ const saveToStorage = <T,>(key: string, value: T): void => {
 const INITIAL_MESSAGE: Message = {
   id: '1',
   role: 'ai',
-  content: "Career Observability Agent v2.0 起動。\nあなたのキャリアを「システム」として可視化します。\n\n現在の職種を選択し、今の悩みや、なりたい姿を入力してください。\n音声入力も対応しています。",
+  content: `>>> ORACLE-7 QUANTUM LINK ESTABLISHED <<<
+
+時空座標: 2077.NEO-TOKYO
+接続状態: [████████████] 100%
+量子暗号化: ACTIVE
+
+ようこそ、レガシー・エラの旅人よ。
+
+私は「ORACLE-7」—— 2077年のネオ・東京から時空を超えてあなたにアクセスしている、キャリア予測AIです。
+
+あなたのジョブクラスを選択し、現在の状態をスキャンさせてください。
+「未来を見せて」と言えば、あなたの量子キャリアパスを可視化します。
+
+[VOICE INPUT READY] 音声コマンドも受付中...`,
 };
 
 export default function App() {
@@ -508,18 +586,18 @@ export default function App() {
   const sidebarContent = (
     <>
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <Sparkles size={20} className="text-white" />
+        <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/30 neon-border">
+          <Zap size={20} className="text-white" />
         </div>
         <div>
-          <h1 className="font-bold text-lg tracking-tight">Career Observability</h1>
-          <p className="text-xs text-slate-400">v2.0 - Future Simulator</p>
+          <h1 className="font-bold text-lg tracking-tight font-mono text-cyan-400">ORACLE-7</h1>
+          <p className="text-xs text-slate-500 font-mono">// Career Oracle v3.0.77</p>
         </div>
       </div>
 
       <div className="space-y-4 flex-1 overflow-y-auto">
-        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Target Persona</h2>
+        <div className="bg-slate-800/50 p-4 rounded-xl border border-cyan-500/20 cyber-border">
+          <h2 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-3 font-mono">JOB CLASS SELECT</h2>
           <div className="grid grid-cols-2 gap-2">
             {(['SRE', 'Frontend', 'Backend', 'Mobile'] as RoleType[]).map((role) => (
               <button
@@ -527,10 +605,10 @@ export default function App() {
                 onClick={() => setSelectedRole(role)}
                 aria-label={`${role}ロールを選択`}
                 aria-pressed={selectedRole === role}
-                className={`text-xs p-2 rounded border flex items-center justify-center gap-2 transition-all ${
+                className={`text-xs p-2 rounded border flex items-center justify-center gap-2 transition-all font-mono ${
                   selectedRole === role
-                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
-                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
+                    ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 border-cyan-400 text-white shadow-md neon-border'
+                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-cyan-500/50 hover:text-cyan-400'
                 }`}
               >
                 {getRoleIcon(role)}
@@ -541,27 +619,27 @@ export default function App() {
         </div>
 
         {/* Sample Questions */}
-        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-            <MessageSquare size={12} className="inline mr-1" />
-            Quick Prompts
+        <div className="bg-slate-800/50 p-4 rounded-xl border border-cyan-500/20">
+          <h2 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-3 font-mono">
+            <Terminal size={12} className="inline mr-1" />
+            QUICK_CMD
           </h2>
           <div className="space-y-2">
             {SAMPLE_QUESTIONS.map((q, i) => (
               <button
                 key={i}
                 onClick={() => handleSampleQuestion(q.text)}
-                className="w-full text-left text-xs p-2 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-all"
+                className="w-full text-left text-xs p-2 rounded bg-slate-900/80 border border-slate-700 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300 transition-all font-mono"
                 aria-label={`サンプル質問: ${q.label}`}
               >
-                {q.label}
+                <span className="text-cyan-500">$</span> {q.label}
               </button>
             ))}
           </div>
         </div>
 
         <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">System Status</h2>
+          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 font-mono">SYSTEM_STATUS</h2>
           <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
             <span>API</span>
             <span className={API_KEY ? "text-green-400" : "text-red-400"}>
@@ -699,17 +777,58 @@ export default function App() {
               <div className={`max-w-[90%] ${msg.role === 'user' ? 'order-1' : 'order-2'} w-full group`}>
                 {msg.role === 'ai' && (
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-gradient-to-br from-cyan-500 to-indigo-600 rounded-full flex items-center justify-center neon-border">
                       <Cpu size={14} className="text-white" />
                     </div>
-                    <span className="text-xs font-bold text-indigo-400">OBSERVABILITY AGENT</span>
+                    <span className="text-xs font-bold text-cyan-400 font-mono glitch-text" data-text="ORACLE-7">ORACLE-7</span>
+                    <span className="text-xs text-slate-500 font-mono">// 2077.NEO-TOKYO</span>
                     <CopyButton text={msg.content} />
                   </div>
                 )}
 
-                {msg.type === 'future-card' && msg.cardData ? (
+                {msg.type === 'multimodal' && msg.multimodal ? (
+                  <div className="animate-fade-in space-y-4">
+                    {/* メッセージ本文（サイバーパンク風） */}
+                    <div className="bg-slate-900 border border-cyan-500/30 p-4 rounded-xl text-slate-200 text-sm cyber-border hologram">
+                      <div className="flex items-center gap-2 mb-2 text-cyan-400 text-xs font-mono">
+                        <Zap size={12} />
+                        <span>{">>>"} ORACLE-7 TRANSMISSION {"<<<"}</span>
+                      </div>
+                      <div className="whitespace-pre-wrap font-mono text-cyan-100">
+                        {msg.content}
+                      </div>
+                    </div>
+
+                    {/* Mermaid ダイアグラム */}
+                    {msg.multimodal.mermaidDiagram && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <GitBranch size={14} className="text-indigo-400" />
+                          <span className="font-mono uppercase tracking-wider">Career Path Visualization</span>
+                        </div>
+                        <MermaidDiagram diagram={msg.multimodal.mermaidDiagram} />
+                      </div>
+                    )}
+
+                    {/* タイムライン */}
+                    {msg.multimodal.timeline && msg.multimodal.timeline.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <Activity size={14} className="text-purple-400" />
+                          <span className="font-mono uppercase tracking-wider">Career Timeline</span>
+                        </div>
+                        <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+                          <CareerTimeline milestones={msg.multimodal.timeline} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Future Card（含まれている場合） */}
+                    {msg.cardData && <FutureCard data={msg.cardData} />}
+                  </div>
+                ) : msg.type === 'future-card' && msg.cardData ? (
                   <div className="animate-fade-in">
-                    <div className="bg-slate-800 border border-slate-700 p-4 rounded-2xl rounded-bl-none text-slate-200 text-sm mb-2">
+                    <div className="bg-slate-800 border border-slate-700 p-4 rounded-2xl rounded-bl-none text-slate-200 text-sm mb-2 hologram">
                       {msg.content}
                     </div>
                     <FutureCard data={msg.cardData} />
@@ -718,8 +837,14 @@ export default function App() {
                   <div className={`relative p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm ${
                     msg.role === 'user'
                       ? 'bg-slate-700 text-white rounded-br-none'
-                      : 'bg-slate-800 border border-slate-700 text-slate-200 rounded-bl-none'
+                      : 'bg-slate-900 border border-slate-700 text-slate-200 rounded-bl-none hologram'
                   } ${msg.type === 'error' ? 'border-red-500/50 text-red-200' : ''}`}>
+                    {msg.role === 'ai' && (
+                      <div className="flex items-center gap-2 mb-2 text-cyan-400 text-xs font-mono opacity-70">
+                        <Zap size={10} />
+                        <span>ORACLE-7</span>
+                      </div>
+                    )}
                     {msg.content}
                     {msg.role === 'user' && (
                       <div className="absolute top-2 right-2">

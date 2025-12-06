@@ -66,19 +66,19 @@ describe('App Component', () => {
     it('renders the main title', () => {
       render(<App />);
       // Use getAllByText because title appears in both desktop and mobile sidebars
-      const titles = screen.getAllByText('Career Observability');
+      const titles = screen.getAllByText('ORACLE-7');
       expect(titles.length).toBeGreaterThan(0);
     });
 
     it('renders the subtitle', () => {
       render(<App />);
-      const subtitles = screen.getAllByText('v2.0 - Future Simulator');
+      const subtitles = screen.getAllByText(/Career Oracle v3\.0\.77/);
       expect(subtitles.length).toBeGreaterThan(0);
     });
 
     it('renders the initial AI message', () => {
       render(<App />);
-      expect(screen.getByText(/Career Observability Agent v2.0 起動/)).toBeInTheDocument();
+      expect(screen.getByText(/ORACLE-7 QUANTUM LINK ESTABLISHED/)).toBeInTheDocument();
     });
 
     it('renders all role selection buttons', () => {
@@ -117,8 +117,8 @@ describe('App Component', () => {
     it('SRE is selected by default', () => {
       render(<App />);
       const sreButtons = screen.getAllByRole('button', { name: /SREロールを選択/i });
-      // At least one should be selected
-      const selectedButton = sreButtons.find(btn => btn.classList.contains('bg-indigo-600'));
+      // At least one should be selected (using new gradient class)
+      const selectedButton = sreButtons.find(btn => btn.classList.contains('from-cyan-600'));
       expect(selectedButton).toBeTruthy();
     });
 
@@ -126,21 +126,21 @@ describe('App Component', () => {
       render(<App />);
       const frontendButtons = screen.getAllByRole('button', { name: /Frontendロールを選択/i });
       await userEvent.click(frontendButtons[0]);
-      expect(frontendButtons[0]).toHaveClass('bg-indigo-600');
+      expect(frontendButtons[0]).toHaveClass('from-cyan-600');
     });
 
     it('can switch to Backend role', async () => {
       render(<App />);
       const backendButtons = screen.getAllByRole('button', { name: /Backendロールを選択/i });
       await userEvent.click(backendButtons[0]);
-      expect(backendButtons[0]).toHaveClass('bg-indigo-600');
+      expect(backendButtons[0]).toHaveClass('from-cyan-600');
     });
 
     it('can switch to Mobile role', async () => {
       render(<App />);
       const mobileButtons = screen.getAllByRole('button', { name: /Mobileロールを選択/i });
       await userEvent.click(mobileButtons[0]);
-      expect(mobileButtons[0]).toHaveClass('bg-indigo-600');
+      expect(mobileButtons[0]).toHaveClass('from-cyan-600');
     });
 
     it('updates header when role changes', async () => {
@@ -248,19 +248,21 @@ describe('App Component', () => {
 
     it('displays system status section', () => {
       render(<App />);
-      const systemStatuses = screen.getAllByText('System Status');
+      const systemStatuses = screen.getAllByText('SYSTEM_STATUS');
       expect(systemStatuses.length).toBeGreaterThan(0);
     });
 
     it('displays target persona section', () => {
       render(<App />);
-      const targetPersonas = screen.getAllByText('Target Persona');
+      const targetPersonas = screen.getAllByText('JOB CLASS SELECT');
       expect(targetPersonas.length).toBeGreaterThan(0);
     });
 
     it('displays AI agent label', () => {
       render(<App />);
-      expect(screen.getByText(/OBSERVABILITY AGENT/)).toBeInTheDocument();
+      // ORACLE-7 appears as the agent name in the new cyberpunk theme
+      const oracleLabels = screen.getAllByText('ORACLE-7');
+      expect(oracleLabels.length).toBeGreaterThan(0);
     });
 
     it('displays keyboard shortcut hint', () => {
@@ -272,23 +274,23 @@ describe('App Component', () => {
   describe('New Features', () => {
     it('displays quick prompts section', () => {
       render(<App />);
-      const quickPrompts = screen.getAllByText('Quick Prompts');
+      const quickPrompts = screen.getAllByText('QUICK_CMD');
       expect(quickPrompts.length).toBeGreaterThan(0);
     });
 
     it('displays sample question buttons', () => {
       render(<App />);
-      const tiredButtons = screen.getAllByRole('button', { name: /サンプル質問: 疲れた/i });
-      expect(tiredButtons.length).toBeGreaterThan(0);
+      const systemAlertButtons = screen.getAllByRole('button', { name: /サンプル質問: SYSTEM_ALERT/i });
+      expect(systemAlertButtons.length).toBeGreaterThan(0);
     });
 
     it('clicking sample question fills input', async () => {
       render(<App />);
-      const tiredButtons = screen.getAllByRole('button', { name: /サンプル質問: 疲れた/i });
-      await userEvent.click(tiredButtons[0]);
+      const systemAlertButtons = screen.getAllByRole('button', { name: /サンプル質問: SYSTEM_ALERT/i });
+      await userEvent.click(systemAlertButtons[0]);
 
       const textarea = screen.getByPlaceholderText(/現在の状況や未来の希望を入力/) as HTMLTextAreaElement;
-      expect(textarea.value).toContain('疲れ');
+      expect(textarea.value).toContain('システム');
     });
 
     it('displays export chat button', () => {
