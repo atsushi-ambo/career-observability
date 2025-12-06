@@ -132,6 +132,10 @@ const parseAPIResponse = (content: string): {
   };
 };
 
+// --- API Configuration ---
+// モデル優先順位: gpt-5-nano → gpt-4o-mini → gpt-4o (フォールバック)
+const API_MODELS = ['gpt-5-nano', 'gpt-4o-mini', 'gpt-4o'] as const;
+
 // --- API Function ---
 const callOpenAI = async (input: string, role: RoleType): Promise<Message> => {
   if (!API_KEY) {
@@ -154,65 +158,88 @@ const callOpenAI = async (input: string, role: RoleType): Promise<Message> => {
   // Sanitize and limit input length
   const sanitizedInput = input.trim().slice(0, MAX_INPUT_LENGTH);
 
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-5-nano",
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT(role) },
-          { role: "user", content: sanitizedInput }
-        ],
-        temperature: 0.8,
-        max_tokens: 1000,
-      })
-    });
+  // フォールバック付きでAPIを呼び出す
+  let lastError: Error | null = null;
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData?.error?.message || 'Unknown error';
-      console.error('API Error:', response.status, errorMessage);
-      throw new Error(`API Error: ${response.status}`);
-    }
+  for (const model of API_MODELS) {
+    try {
+      console.log(`Attempting API call with model: ${model}`);
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          model: model,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT(role) },
+            { role: "user", content: sanitizedInput }
+          ],
+          temperature: 0.8,
+          max_tokens: 1000,
+        })
+      });
 
-    const data = await response.json();
-    const messageContent = data?.choices?.[0]?.message?.content;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData?.error?.message || 'Unknown error';
+        console.warn(`API Error with ${model}:`, response.status, errorMessage);
 
-    if (!messageContent) {
-      throw new Error('Invalid API response structure');
-    }
-
-    const parsedData = parseAPIResponse(messageContent);
-
-    return {
-      id: Date.now().toString(),
-      role: 'ai',
-      content: parsedData.content,
-      type: parsedData.responseType,
-      cardData: parsedData.cardData,
-      metricsUpdate: parsedData.metricsUpdate
-    };
-
-  } catch (error) {
-    console.error('OpenAI API Error:', error instanceof Error ? error.message : 'Unknown error');
-    return {
-      id: Date.now().toString(),
-      role: 'ai',
-      content: "通信エラーが発生しました。未来との接続が不安定です。",
-      type: 'error',
-      metricsUpdate: {
-        reliability: 50,
-        innovation: 50,
-        burnoutRisk: 60,
-        growthVelocity: 40,
+        // モデルが存在しない場合は次のモデルを試す
+        if (response.status === 404 || errorMessage.includes('does not exist') || errorMessage.includes('model')) {
+          lastError = new Error(`Model ${model} not available: ${errorMessage}`);
+          continue;
+        }
+        throw new Error(`API Error: ${response.status} - ${errorMessage}`);
       }
-    };
+
+      const data = await response.json();
+      const messageContent = data?.choices?.[0]?.message?.content;
+
+      if (!messageContent) {
+        throw new Error('Invalid API response structure');
+      }
+
+      const parsedData = parseAPIResponse(messageContent);
+
+      // 成功した場合、使用したモデルをログに記録
+      console.log(`Successfully used model: ${model}`);
+
+      return {
+        id: Date.now().toString(),
+        role: 'ai',
+        content: parsedData.content,
+        type: parsedData.responseType,
+        cardData: parsedData.cardData,
+        metricsUpdate: parsedData.metricsUpdate
+      };
+
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+      console.warn(`Failed with model ${model}:`, lastError.message);
+
+      // モデル関連のエラーでなければ、すぐにエラーを返す
+      if (!lastError.message.includes('model') && !lastError.message.includes('404')) {
+        break;
+      }
+    }
   }
+
+  console.error('All API models failed:', lastError?.message);
+  return {
+    id: Date.now().toString(),
+    role: 'ai',
+    content: `通信エラーが発生しました。詳細: ${lastError?.message || 'Unknown error'}`,
+    type: 'error',
+    metricsUpdate: {
+      reliability: 50,
+      innovation: 50,
+      burnoutRisk: 60,
+      growthVelocity: 40,
+    }
+  };
 };
 
 // --- Components ---
@@ -543,7 +570,7 @@ export default function App() {
           </div>
           <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
             <span>Model</span>
-            <span className="text-indigo-400">GPT-5 nano</span>
+            <span className="text-indigo-400" title="gpt-5-nano → gpt-4o-mini → gpt-4o">GPT-5*</span>
           </div>
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span>Voice</span>
