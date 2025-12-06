@@ -108,7 +108,7 @@ describe('App Component', () => {
 
     it('displays the prediction model info', () => {
       render(<App />);
-      const modelInfos = screen.getAllByText('GPT-4o');
+      const modelInfos = screen.getAllByText('GPT-5 nano');
       expect(modelInfos.length).toBeGreaterThan(0);
     });
   });
