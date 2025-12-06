@@ -6,6 +6,18 @@ import App from './App';
 // Mock fetch for API calls
 global.fetch = vi.fn();
 
+// Mock localStorage
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: vi.fn((key: string) => store[key] || null),
+    setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
+    removeItem: vi.fn((key: string) => { delete store[key]; }),
+    clear: vi.fn(() => { store = {}; }),
+  };
+})();
+Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+
 // Mock Web Speech API
 const mockSpeechRecognition = {
   start: vi.fn(),
@@ -42,6 +54,7 @@ const mockMatchMedia = (matches: boolean) => {
 describe('App Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorageMock.clear();
     mockMatchMedia(true); // Simulate large screen for sidebar visibility
   });
 
@@ -52,12 +65,15 @@ describe('App Component', () => {
   describe('Initial Rendering', () => {
     it('renders the main title', () => {
       render(<App />);
-      expect(screen.getByText('Career Observability')).toBeInTheDocument();
+      // Use getAllByText because title appears in both desktop and mobile sidebars
+      const titles = screen.getAllByText('Career Observability');
+      expect(titles.length).toBeGreaterThan(0);
     });
 
     it('renders the subtitle', () => {
       render(<App />);
-      expect(screen.getByText('v2.0 - Future Simulator')).toBeInTheDocument();
+      const subtitles = screen.getAllByText('v2.0 - Future Simulator');
+      expect(subtitles.length).toBeGreaterThan(0);
     });
 
     it('renders the initial AI message', () => {
@@ -67,10 +83,16 @@ describe('App Component', () => {
 
     it('renders all role selection buttons', () => {
       render(<App />);
-      expect(screen.getByRole('button', { name: /SRE/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Frontend/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Backend/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Mobile/i })).toBeInTheDocument();
+      // Multiple buttons exist (mobile + desktop), so use getAllByRole
+      const sreButtons = screen.getAllByRole('button', { name: /SREロールを選択/i });
+      const frontendButtons = screen.getAllByRole('button', { name: /Frontendロールを選択/i });
+      const backendButtons = screen.getAllByRole('button', { name: /Backendロールを選択/i });
+      const mobileButtons = screen.getAllByRole('button', { name: /Mobileロールを選択/i });
+
+      expect(sreButtons.length).toBeGreaterThan(0);
+      expect(frontendButtons.length).toBeGreaterThan(0);
+      expect(backendButtons.length).toBeGreaterThan(0);
+      expect(mobileButtons.length).toBeGreaterThan(0);
     });
 
     it('renders the input textarea', () => {
@@ -80,51 +102,53 @@ describe('App Component', () => {
 
     it('renders the send button', () => {
       render(<App />);
-      const sendButtons = screen.getAllByRole('button');
-      const sendButton = sendButtons.find(btn => btn.querySelector('svg.lucide-send'));
+      const sendButton = screen.getByRole('button', { name: /メッセージを送信/i });
       expect(sendButton).toBeInTheDocument();
     });
 
     it('displays the prediction model info', () => {
       render(<App />);
-      expect(screen.getByText('GPT-4o')).toBeInTheDocument();
+      const modelInfos = screen.getAllByText('GPT-4o');
+      expect(modelInfos.length).toBeGreaterThan(0);
     });
   });
 
   describe('Role Selection', () => {
     it('SRE is selected by default', () => {
       render(<App />);
-      const sreButton = screen.getByRole('button', { name: /SRE/i });
-      expect(sreButton).toHaveClass('bg-indigo-600');
+      const sreButtons = screen.getAllByRole('button', { name: /SREロールを選択/i });
+      // At least one should be selected
+      const selectedButton = sreButtons.find(btn => btn.classList.contains('bg-indigo-600'));
+      expect(selectedButton).toBeTruthy();
     });
 
     it('can switch to Frontend role', async () => {
       render(<App />);
-      const frontendButton = screen.getByRole('button', { name: /Frontend/i });
-      await userEvent.click(frontendButton);
-      expect(frontendButton).toHaveClass('bg-indigo-600');
+      const frontendButtons = screen.getAllByRole('button', { name: /Frontendロールを選択/i });
+      await userEvent.click(frontendButtons[0]);
+      expect(frontendButtons[0]).toHaveClass('bg-indigo-600');
     });
 
     it('can switch to Backend role', async () => {
       render(<App />);
-      const backendButton = screen.getByRole('button', { name: /Backend/i });
-      await userEvent.click(backendButton);
-      expect(backendButton).toHaveClass('bg-indigo-600');
+      const backendButtons = screen.getAllByRole('button', { name: /Backendロールを選択/i });
+      await userEvent.click(backendButtons[0]);
+      expect(backendButtons[0]).toHaveClass('bg-indigo-600');
     });
 
     it('can switch to Mobile role', async () => {
       render(<App />);
-      const mobileButton = screen.getByRole('button', { name: /Mobile/i });
-      await userEvent.click(mobileButton);
-      expect(mobileButton).toHaveClass('bg-indigo-600');
+      const mobileButtons = screen.getAllByRole('button', { name: /Mobileロールを選択/i });
+      await userEvent.click(mobileButtons[0]);
+      expect(mobileButtons[0]).toHaveClass('bg-indigo-600');
     });
 
     it('updates header when role changes', async () => {
       render(<App />);
       expect(screen.getByText(/target: sre/)).toBeInTheDocument();
 
-      const frontendButton = screen.getByRole('button', { name: /Frontend/i });
-      await userEvent.click(frontendButton);
+      const frontendButtons = screen.getAllByRole('button', { name: /Frontendロールを選択/i });
+      await userEvent.click(frontendButtons[0]);
       expect(screen.getByText(/target: frontend/)).toBeInTheDocument();
     });
   });
@@ -139,8 +163,7 @@ describe('App Component', () => {
 
     it('send button is disabled when input is empty', () => {
       render(<App />);
-      const sendButtons = screen.getAllByRole('button');
-      const sendButton = sendButtons.find(btn => btn.querySelector('svg.lucide-send'));
+      const sendButton = screen.getByRole('button', { name: /メッセージを送信/i });
       expect(sendButton).toBeDisabled();
     });
 
@@ -149,9 +172,22 @@ describe('App Component', () => {
       const textarea = screen.getByPlaceholderText(/現在の状況や未来の希望を入力/);
       await userEvent.type(textarea, 'テストメッセージ');
 
-      const sendButtons = screen.getAllByRole('button');
-      const sendButton = sendButtons.find(btn => btn.querySelector('svg.lucide-send'));
+      const sendButton = screen.getByRole('button', { name: /メッセージを送信/i });
       expect(sendButton).not.toBeDisabled();
+    });
+
+    it('shows character count', () => {
+      render(<App />);
+      // Initial character count should be 1000 (max length)
+      expect(screen.getByText('1000')).toBeInTheDocument();
+    });
+
+    it('updates character count when typing', async () => {
+      render(<App />);
+      const textarea = screen.getByPlaceholderText(/現在の状況や未来の希望を入力/);
+      await userEvent.type(textarea, 'テスト');
+      // 1000 - 3 = 997
+      expect(screen.getByText('997')).toBeInTheDocument();
     });
   });
 
@@ -161,9 +197,8 @@ describe('App Component', () => {
       const textarea = screen.getByPlaceholderText(/現在の状況や未来の希望を入力/);
       await userEvent.type(textarea, 'テストメッセージ');
 
-      const sendButtons = screen.getAllByRole('button');
-      const sendButton = sendButtons.find(btn => btn.querySelector('svg.lucide-send'));
-      await userEvent.click(sendButton!);
+      const sendButton = screen.getByRole('button', { name: /メッセージを送信/i });
+      await userEvent.click(sendButton);
 
       expect(screen.getByText('テストメッセージ')).toBeInTheDocument();
     });
@@ -173,9 +208,8 @@ describe('App Component', () => {
       const textarea = screen.getByPlaceholderText(/現在の状況や未来の希望を入力/) as HTMLTextAreaElement;
       await userEvent.type(textarea, 'テストメッセージ');
 
-      const sendButtons = screen.getAllByRole('button');
-      const sendButton = sendButtons.find(btn => btn.querySelector('svg.lucide-send'));
-      await userEvent.click(sendButton!);
+      const sendButton = screen.getByRole('button', { name: /メッセージを送信/i });
+      await userEvent.click(sendButton);
 
       expect(textarea.value).toBe('');
     });
@@ -208,22 +242,77 @@ describe('App Component', () => {
 
     it('displays demo tip text', () => {
       render(<App />);
-      expect(screen.getByText(/Demo Tip:/)).toBeInTheDocument();
+      const demoTips = screen.getAllByText(/Demo Tip:/);
+      expect(demoTips.length).toBeGreaterThan(0);
     });
 
     it('displays system status section', () => {
       render(<App />);
-      expect(screen.getByText('System Status')).toBeInTheDocument();
+      const systemStatuses = screen.getAllByText('System Status');
+      expect(systemStatuses.length).toBeGreaterThan(0);
     });
 
     it('displays target persona section', () => {
       render(<App />);
-      expect(screen.getByText('Target Persona')).toBeInTheDocument();
+      const targetPersonas = screen.getAllByText('Target Persona');
+      expect(targetPersonas.length).toBeGreaterThan(0);
     });
 
     it('displays AI agent label', () => {
       render(<App />);
       expect(screen.getByText(/OBSERVABILITY AGENT/)).toBeInTheDocument();
+    });
+
+    it('displays keyboard shortcut hint', () => {
+      render(<App />);
+      expect(screen.getByText(/Enter で送信/)).toBeInTheDocument();
+    });
+  });
+
+  describe('New Features', () => {
+    it('displays quick prompts section', () => {
+      render(<App />);
+      const quickPrompts = screen.getAllByText('Quick Prompts');
+      expect(quickPrompts.length).toBeGreaterThan(0);
+    });
+
+    it('displays sample question buttons', () => {
+      render(<App />);
+      const tiredButtons = screen.getAllByRole('button', { name: /サンプル質問: 疲れた/i });
+      expect(tiredButtons.length).toBeGreaterThan(0);
+    });
+
+    it('clicking sample question fills input', async () => {
+      render(<App />);
+      const tiredButtons = screen.getAllByRole('button', { name: /サンプル質問: 疲れた/i });
+      await userEvent.click(tiredButtons[0]);
+
+      const textarea = screen.getByPlaceholderText(/現在の状況や未来の希望を入力/) as HTMLTextAreaElement;
+      expect(textarea.value).toContain('疲れ');
+    });
+
+    it('displays export chat button', () => {
+      render(<App />);
+      const exportButtons = screen.getAllByRole('button', { name: /会話をエクスポート/i });
+      expect(exportButtons.length).toBeGreaterThan(0);
+    });
+
+    it('displays clear chat button', () => {
+      render(<App />);
+      const clearButtons = screen.getAllByRole('button', { name: /会話をクリア/i });
+      expect(clearButtons.length).toBeGreaterThan(0);
+    });
+
+    it('displays mobile menu button', () => {
+      render(<App />);
+      const menuButton = screen.getByRole('button', { name: /メニューを開く/i });
+      expect(menuButton).toBeInTheDocument();
+    });
+
+    it('displays mobile dashboard button', () => {
+      render(<App />);
+      const dashboardButton = screen.getByRole('button', { name: /ダッシュボードを表示/i });
+      expect(dashboardButton).toBeInTheDocument();
     });
   });
 
@@ -262,16 +351,27 @@ describe('App Component', () => {
   describe('Voice Input', () => {
     it('renders voice input button when supported', () => {
       render(<App />);
-      const voiceButtons = screen.getAllByRole('button');
-      const voiceButton = voiceButtons.find(btn =>
-        btn.querySelector('svg.lucide-mic') || btn.querySelector('svg.lucide-mic-off')
-      );
+      const voiceButton = screen.getByRole('button', { name: /音声入力を開始/i });
       expect(voiceButton).toBeInTheDocument();
     });
 
     it('shows voice status as ready', () => {
       render(<App />);
-      expect(screen.getByText('Ready')).toBeInTheDocument();
+      const readyStatuses = screen.getAllByText('Ready');
+      expect(readyStatuses.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('localStorage persistence', () => {
+    it('saves messages to localStorage', async () => {
+      render(<App />);
+      const textarea = screen.getByPlaceholderText(/現在の状況や未来の希望を入力/);
+      await userEvent.type(textarea, 'テストメッセージ');
+
+      const sendButton = screen.getByRole('button', { name: /メッセージを送信/i });
+      await userEvent.click(sendButton);
+
+      expect(localStorageMock.setItem).toHaveBeenCalled();
     });
   });
 });

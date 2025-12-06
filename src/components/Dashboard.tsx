@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Activity, AlertTriangle, Gauge, Terminal, TrendingUp, Shield } from 'lucide-react';
 import type { Metrics } from '../types';
 
@@ -38,6 +38,7 @@ export const Dashboard = ({ metrics }: DashboardProps) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [displayMetrics, setDisplayMetrics] = useState(metrics);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const prevMetricsRef = useRef(metrics);
 
   // メトリクス変更時のアニメーション効果
   useEffect(() => {
@@ -45,10 +46,11 @@ export const Dashboard = ({ metrics }: DashboardProps) => {
     const steps = 20;
     const stepDuration = duration / steps;
 
-    const startMetrics = { ...displayMetrics };
+    const startMetrics = { ...prevMetricsRef.current };
     const targetMetrics = { ...metrics };
 
     let currentStep = 0;
+    let animationId: ReturnType<typeof setTimeout>;
 
     const animate = () => {
       currentStep++;
@@ -62,55 +64,61 @@ export const Dashboard = ({ metrics }: DashboardProps) => {
       });
 
       if (currentStep < steps) {
-        setTimeout(animate, stepDuration);
+        animationId = setTimeout(animate, stepDuration);
+      } else {
+        prevMetricsRef.current = metrics;
       }
     };
 
     animate();
+
+    return () => {
+      if (animationId) clearTimeout(animationId);
+    };
   }, [metrics]);
 
   // ログ生成
-  useEffect(() => {
-    const generateLog = (): LogEntry => {
-      const messages: { level: LogEntry['level']; message: string }[] = [
-        { level: 'INFO', message: 'Career path analysis in progress...' },
-        { level: 'INFO', message: 'Scanning future timeline data...' },
-        { level: 'INFO', message: 'Reliability metrics updated' },
-        { level: 'SUCCESS', message: 'Growth velocity calculated' },
-        { level: 'INFO', message: 'Innovation index refreshed' },
-      ];
+  const generateLog = useCallback((): LogEntry => {
+    const messages: { level: LogEntry['level']; message: string }[] = [
+      { level: 'INFO', message: 'Career path analysis in progress...' },
+      { level: 'INFO', message: 'Scanning future timeline data...' },
+      { level: 'INFO', message: 'Reliability metrics updated' },
+      { level: 'SUCCESS', message: 'Growth velocity calculated' },
+      { level: 'INFO', message: 'Innovation index refreshed' },
+    ];
 
-      if (metrics.burnoutRisk > 50) {
-        messages.push(
-          { level: 'WARN', message: 'Elevated stress levels detected' },
-          { level: 'WARN', message: 'Error budget consumption rising' },
-          { level: 'ERROR', message: 'ALERT: Burnout risk threshold exceeded' }
-        );
-      }
+    if (metrics.burnoutRisk > 50) {
+      messages.push(
+        { level: 'WARN', message: 'Elevated stress levels detected' },
+        { level: 'WARN', message: 'Error budget consumption rising' },
+        { level: 'ERROR', message: 'ALERT: Burnout risk threshold exceeded' }
+      );
+    }
 
-      if (metrics.reliability < 90) {
-        messages.push(
-          { level: 'WARN', message: 'Career stability below SLO target' },
-          { level: 'WARN', message: 'Reliability degradation observed' }
-        );
-      }
+    if (metrics.reliability < 90) {
+      messages.push(
+        { level: 'WARN', message: 'Career stability below SLO target' },
+        { level: 'WARN', message: 'Reliability degradation observed' }
+      );
+    }
 
-      if (metrics.growthVelocity > 80) {
-        messages.push(
-          { level: 'SUCCESS', message: 'Exceptional growth trajectory detected' },
-          { level: 'INFO', message: 'Career momentum accelerating' }
-        );
-      }
+    if (metrics.growthVelocity > 80) {
+      messages.push(
+        { level: 'SUCCESS', message: 'Exceptional growth trajectory detected' },
+        { level: 'INFO', message: 'Career momentum accelerating' }
+      );
+    }
 
-      const selected = messages[Math.floor(Math.random() * messages.length)];
-      const now = new Date();
-      return {
-        id: Date.now().toString(),
-        ...selected,
-        timestamp: now.toLocaleTimeString('ja-JP', { hour12: false }),
-      };
+    const selected = messages[Math.floor(Math.random() * messages.length)];
+    const now = new Date();
+    return {
+      id: Date.now().toString(),
+      ...selected,
+      timestamp: now.toLocaleTimeString('ja-JP', { hour12: false }),
     };
+  }, [metrics.burnoutRisk, metrics.reliability, metrics.growthVelocity]);
 
+  useEffect(() => {
     const interval = setInterval(() => {
       setLogs(prev => [...prev.slice(-9), generateLog()]);
     }, 2000);
@@ -119,7 +127,7 @@ export const Dashboard = ({ metrics }: DashboardProps) => {
     setLogs([generateLog()]);
 
     return () => clearInterval(interval);
-  }, [metrics.burnoutRisk, metrics.reliability, metrics.growthVelocity]);
+  }, [generateLog]);
 
   // ログ自動スクロール
   useEffect(() => {
